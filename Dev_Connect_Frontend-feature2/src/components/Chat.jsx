@@ -12,8 +12,6 @@
 //   const senderName = user?.name;
 //   const socket = createSocketConnection();
 
-
-
 //   useEffect(()=>{
 //     if(!userId){
 //       return;
@@ -28,7 +26,6 @@
 //       console.log(senderName+" : "+text);
 //     });
 
-
 //     return () =>{
 //       socket.disconnect();
 //     }
@@ -37,7 +34,7 @@
 //   // socket.on("messageReceived",({senderName,text})=>{
 //   //   console.log(senderName +" : "+ text );
 //   //   })
-  
+
 //   //send message handler function
 
 //   const sendMessage = () =>{
@@ -50,8 +47,6 @@
 //     })
 //     console.log(senderName+" : "+text);
 //   }
-
-
 
 //   return (
 //     <div className="w-3/4 mx-auto border border-gray-600 m-5 h-[70vh] flex flex-col">
@@ -107,12 +102,13 @@
 
 // export default Chat;
 
-
-
 import React, { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { createSocketConnection } from "../utils/socket";
 import { useSelector } from "react-redux";
+import { BASE_URL } from "../utils/constants";
+import axios from "axios";
+import { Paperclip } from "lucide-react";
 
 const Chat = () => {
   const { targetUserId } = useParams();
@@ -125,7 +121,8 @@ const Chat = () => {
   const senderName = user?.name;
   const photoUrl = user?.photoUrl;
 
-  const socket = createSocketConnection();
+  // const socket = createSocketConnection();
+  const socketRef = useRef(null);
   const bottomRef = useRef(null);
 
   // format time
@@ -142,24 +139,63 @@ const Chat = () => {
   }, [messages]);
 
   useEffect(() => {
+    const fetchMessages = async () => {
+      try {
+        const res = await axios.get(
+          `${BASE_URL}/messages/${userId}/${targetUserId}`,
+          { withCredentials: true },
+        );
+        const data = res.data;
+
+        const formatted = data.map((msg) => ({
+          id: msg._id,
+          senderName: msg.senderId.toString() === userId ? senderName : "User",
+          userId: msg.senderId.toString(),
+          targetUserId: msg.receiverId.toString(),
+          text: msg.text,
+          createdAt: msg.createdAt,
+          status: msg.status,
+          photoUrl: msg.photoUrl,
+          type: msg.type,
+          fileUrl: msg.fileUrl,
+          fileName: msg.fileName,
+        }));
+
+        setMessages(formatted);
+      } catch (err) {
+        console.error("Error fetching messages:", err);
+      }
+    };
+
+    if (userId && targetUserId) {
+      fetchMessages();
+    }
+  }, [userId, targetUserId]);
+
+  useEffect(() => {
     if (!userId) return;
 
-    socket.emit("joinChat", { senderName, userId, targetUserId });
+    socketRef.current = createSocketConnection();
 
-    socket.off("messageReceived");
-    socket.off("messagesSeen");
+    socketRef.current.emit("joinChat", {
+      senderName,
+      userId,
+      targetUserId,
+    });
 
-    // ✅ RECEIVE MESSAGE
-    socket.on("messageReceived", (msg) => {
+    // ✅ prevent duplicate listeners
+    socketRef.current.off("messageReceived");
+    socketRef.current.off("messagesSeen");
+
+    socketRef.current.on("messageReceived", (msg) => {
       setMessages((prev) => {
         const exists = prev.some((m) => m.id === msg.id);
         if (exists) return prev;
         return [...prev, msg];
       });
 
-      // ✅ If I am receiver → mark seen instantly
       if (msg.userId !== userId) {
-        socket.emit("markSeen", {
+        socketRef.current.emit("markSeen", {
           userId,
           targetUserId,
           messageId: msg.id,
@@ -167,19 +203,16 @@ const Chat = () => {
       }
     });
 
-    // ✅ SEEN UPDATE
-    socket.on("messagesSeen", ({ messageId }) => {
+    socketRef.current.on("messagesSeen", ({ messageId }) => {
       setMessages((prev) =>
         prev.map((msg) =>
-          msg.id === messageId
-            ? { ...msg, status: "seen" }
-            : msg
-        )
+          msg.id === messageId ? { ...msg, status: "seen" } : msg,
+        ),
       );
     });
 
     return () => {
-      socket.disconnect();
+      socketRef.current.disconnect();
     };
   }, [userId, targetUserId]);
 
@@ -198,14 +231,46 @@ const Chat = () => {
       photoUrl,
     };
 
-    socket.emit("sendMessage", messageData);
+    // socket.emit("sendMessage", messageData);
+    socketRef.current.emit("sendMessage", messageData);
 
-    setMessages((prev) => [...prev, messageData]);
+    // setMessages((prev) => [...prev, messageData]);
     setNewMessage("");
   };
 
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await axios.post(`${BASE_URL}/messages/upload`, formData, {
+        withCredentials: true,
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const { fileUrl, fileName } = res.data;
+
+      socketRef.current.emit("sendMessage", {
+        senderName,
+        userId,
+        targetUserId,
+        type: file.type.startsWith("image") ? "image" : "file",
+        fileUrl,
+        fileName,
+        photoUrl,
+      });
+    } catch (err) {
+      console.error("File upload error:", err);
+    }
+  };
+
   return (
-    <div className="w-3/4 mx-auto border border-gray-700 m-5 h-[75vh] flex flex-col bg-[#0f172a] text-white">
+    <div className="w-3/4 mx-auto border rounded-xl border-gray-700 m-5 h-[75vh] flex flex-col bg-[#0f172a] text-white">
       <h1 className="p-4 border-b border-gray-700 font-semibold">Chat</h1>
 
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
@@ -215,14 +280,17 @@ const Chat = () => {
           return (
             <div key={msg.id}>
               {/* Header */}
-              <div className={`text-xs text-gray-400 mb-1 ${isMe ? "text-right" : "text-left"}`}>
+              <div
+                className={`text-xs text-gray-400 mb-1 ${isMe ? "text-right" : "text-left"}`}
+              >
                 <span className="font-semibold">{msg.senderName}</span>{" "}
                 {formatTime(msg.createdAt)}
               </div>
 
               {/* Message */}
-              <div className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}>
-                
+              <div
+                className={`flex items-end gap-2 ${isMe ? "justify-end" : "justify-start"}`}
+              >
                 {!isMe && (
                   <img
                     src={msg.photoUrl || "https://i.pravatar.cc/40?img=3"}
@@ -231,9 +299,32 @@ const Chat = () => {
                   />
                 )}
 
-                <div className="bg-gray-700 px-4 py-2 rounded-xl max-w-xs">
-                  {msg.text}
-                </div>
+
+                  <div className="bg-gray-700 px-2 py-1 rounded-xl max-w-xs">
+                    {/* TEXT */}
+                    {msg.type === "text" && msg.text}
+
+                    {/* IMAGE */}
+                    {msg.type === "image" && (
+                      <img
+                        src={msg.fileUrl}
+                        className="max-w-xs rounded"
+                        alt="sent"
+                      />
+                    )}
+
+                    {/* FILE */}
+                    {msg.type === "file" && (
+                      <a
+                        href={msg.fileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-blue-400 underline"
+                      >
+                        📄 {msg.fileName}
+                      </a>
+                    )}
+                  </div>
 
                 {isMe && (
                   <img
@@ -245,7 +336,9 @@ const Chat = () => {
               </div>
 
               {/* Status */}
-              <div className={`text-xs mt-1 ${isMe ? "text-right text-gray-400" : ""}`}>
+              <div
+                className={`text-xs mt-1 ${isMe ? "text-right text-gray-400" : ""}`}
+              >
                 {isMe && msg.status === "seen" && "Seen"}
                 {isMe && msg.status === "delivered" && "Delivered"}
               </div>
@@ -256,14 +349,31 @@ const Chat = () => {
         <div ref={bottomRef}></div>
       </div>
 
-      <div className="p-4 border-t border-gray-700 flex gap-2">
+      <div className="p-4 border-t border-gray-700 flex gap-2 items-center">
+
+        {/* Text input */}
         <input
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           placeholder="Type a message..."
           className="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white"
         />
-        <button onClick={sendMessage} className="btn btn-secondary">
+
+        {/* 📎 Hidden file input */}
+        <input
+          type="file"
+          onChange={handleFileUpload}
+          className="hidden"
+          id="fileInput"
+        />
+
+        {/* 📎 Button */}
+        <label htmlFor="fileInput" className="btn p-2 btn-secondary cursor-pointer">
+          <Paperclip size={18} />
+        </label>
+
+        {/* Send button */}
+        <button onClick={sendMessage} className="btn px-8 btn-secondary">
           Send
         </button>
       </div>

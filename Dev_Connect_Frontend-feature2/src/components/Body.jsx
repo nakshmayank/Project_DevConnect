@@ -40,7 +40,7 @@ const Body =()=>{
     <Navbar />
 
     {/* Main Content */}
-    <main className="flex-grow">
+    <main className="flex-grow bg-black">
       <Outlet />
     </main>
 

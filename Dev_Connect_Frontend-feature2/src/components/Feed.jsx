@@ -212,7 +212,6 @@ const Feed = () => {
 
   const feed = useSelector((store) => store.feed);
   const location = useLocation();
-  const navigate = useNavigate(); // 🔥 ADDED
   const dispatch = useDispatch();
   const [currentIndex, setCurrentIndex] = useState(0);
 

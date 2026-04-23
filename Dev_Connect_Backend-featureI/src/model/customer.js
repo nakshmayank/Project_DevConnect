@@ -63,7 +63,11 @@ const customerSchema = new mongoose.Schema({
   followingCount:{
     type:Number,
     default:0
-  }
+  },
+  embedding: {
+  type: [Number],
+  default: [],
+},
 });
 
 

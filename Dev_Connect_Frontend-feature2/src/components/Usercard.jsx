@@ -3,7 +3,14 @@ import { BASE_URL } from "../utils/constants";
 import axios from "axios";
 import { removeUserFromFeed } from "../utils/feedSlice";
 
-const Usercard = ({ user, handleNext, handlePrevious, isFirst, isLast,disableActions = false }) => {
+const Usercard = ({
+  user,
+  handleNext,
+  handlePrevious,
+  isFirst,
+  isLast,
+  disableActions = false,
+}) => {
   const dispatch = useDispatch();
   const {
     _id,
@@ -17,8 +24,6 @@ const Usercard = ({ user, handleNext, handlePrevious, isFirst, isLast,disableAct
     email,
     followersCount,
     followingCount,
-    recommendationScore,
-    recommendationReasons,
   } = user;
 
   const HandleSendRequest = async (status, _id) => {
@@ -105,6 +110,18 @@ const Usercard = ({ user, handleNext, handlePrevious, isFirst, isLast,disableAct
             <p className="text-gray-300 text-sm leading-relaxed">{about}</p>
           )}
 
+          {typeof user.aiScore === "number" && (
+            <div className="rounded-xl border border-green-700/40 bg-green-950/40 p-4 space-y-2">
+              <p className="text-green-400 text-sm font-semibold">
+                AI Match: {user.aiScore.toFixed(1)}%
+              </p>
+
+              {user.reason && (
+                <p className="text-gray-300 text-sm italic">{user.reason}</p>
+              )}
+            </div>
+          )}
+
           {skills && (
             <div className="flex flex-wrap gap-2 justify-center md:justify-start">
               {(Array.isArray(skills)
@@ -146,21 +163,6 @@ const Usercard = ({ user, handleNext, handlePrevious, isFirst, isLast,disableAct
             </div>
           )}
 
-          {typeof recommendationScore === "number" && (
-            <div className="rounded-xl border border-emerald-700/40 bg-emerald-950/40 p-4 space-y-2">
-              <p className="text-sm font-semibold text-emerald-300">
-                AI Match Score: {recommendationScore}/100
-              </p>
-              {Array.isArray(recommendationReasons) && recommendationReasons.length > 0 && (
-                <div className="text-sm text-zinc-300 space-y-1">
-                  {recommendationReasons.map((reason, index) => (
-                    <p key={index}>{reason}</p>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Buttons */}
           <div className="flex gap-4 pt-4">
             <button
@@ -178,17 +180,20 @@ const Usercard = ({ user, handleNext, handlePrevious, isFirst, isLast,disableAct
               Ignore
             </button>
 
-            <button 
-  disabled={disableActions}
-  onClick={() => !disableActions && HandleSendRequest("interested", _id)}
-  className={`flex-1 py-2 rounded-lg font-semibold transition
-  ${disableActions 
-    ? "bg-gray-600 cursor-not-allowed opacity-50" 
-    : "bg-green-600 hover:bg-green-700 text-white"
+            <button
+              disabled={disableActions}
+              onClick={() =>
+                !disableActions && HandleSendRequest("interested", _id)
+              }
+              className={`flex-1 py-2 rounded-lg font-semibold transition
+  ${
+    disableActions
+      ? "bg-gray-600 cursor-not-allowed opacity-50"
+      : "bg-green-600 hover:bg-green-700 text-white"
   }`}
->
-  Interested
-</button>
+            >
+              Interested
+            </button>
           </div>
           {/* <div className="join grid grid-cols-2">
             <button onClick={()=>handlePrevious} className="join-item btn btn-outline">« Previous</button>

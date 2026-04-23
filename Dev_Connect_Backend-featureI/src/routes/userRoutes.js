@@ -3,9 +3,10 @@ const userRouter = express.Router();
 const { userAuth } = require("../middleware/userAuth");
 const { connectionRequestModel } = require("../model/connectionRequest");
 const customer = require("../model/customer");
-const { authRouter } = require("./authRoutes");
 const { validateEditData } = require("../utils/validateEditData");
 const { Review } = require("../model/reviews");
+const { getEmbedding, buildUserText, cosineSimilarity } = require("../utils/ai");
+const { generateReason } = require("../utils/gemini");
 
 const normalizeList = (value = []) => {
   if (Array.isArray(value)) {
@@ -24,84 +25,84 @@ const normalizeList = (value = []) => {
   return [];
 };
 
-const getKeywordSet = (text = "") => {
-  return new Set(
-    String(text)
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, " ")
-      .split(/\s+/)
-      .filter((word) => word.length > 2)
-  );
-};
+// const getKeywordSet = (text = "") => {
+//   return new Set(
+//     String(text)
+//       .toLowerCase()
+//       .replace(/[^a-z0-9\s]/g, " ")
+//       .split(/\s+/)
+//       .filter((word) => word.length > 2)
+//   );
+// };
 
-const getOverlapCount = (source = [], target = []) => {
-  const sourceSet = new Set(source);
-  return target.filter((item) => sourceSet.has(item)).length;
-};
+// const getOverlapCount = (source = [], target = []) => {
+//   const sourceSet = new Set(source);
+//   return target.filter((item) => sourceSet.has(item)).length;
+// };
 
-const buildRecommendation = (loggedInUser, candidateUser) => {
-  const currentSkills = normalizeList(loggedInUser.skills);
-  const currentInterests = normalizeList(loggedInUser.interests);
-  const currentAboutKeywords = [...getKeywordSet(loggedInUser.about)];
+// const buildRecommendation = (loggedInUser, candidateUser) => {
+//   const currentSkills = normalizeList(loggedInUser.skills);
+//   const currentInterests = normalizeList(loggedInUser.interests);
+//   const currentAboutKeywords = [...getKeywordSet(loggedInUser.about)];
 
-  const candidateSkills = normalizeList(candidateUser.skills);
-  const candidateInterests = normalizeList(candidateUser.interests);
-  const candidateAboutKeywords = [...getKeywordSet(candidateUser.about)];
+//   const candidateSkills = normalizeList(candidateUser.skills);
+//   const candidateInterests = normalizeList(candidateUser.interests);
+//   const candidateAboutKeywords = [...getKeywordSet(candidateUser.about)];
 
-  const commonSkills = candidateSkills.filter((skill) =>
-    currentSkills.includes(skill)
-  );
-  const commonInterests = candidateInterests.filter((interest) =>
-    currentInterests.includes(interest)
-  );
-  const aboutOverlapCount = getOverlapCount(currentAboutKeywords, candidateAboutKeywords);
+//   const commonSkills = candidateSkills.filter((skill) =>
+//     currentSkills.includes(skill)
+//   );
+//   const commonInterests = candidateInterests.filter((interest) =>
+//     currentInterests.includes(interest)
+//   );
+//   const aboutOverlapCount = getOverlapCount(currentAboutKeywords, candidateAboutKeywords);
 
-  const skillScore = Math.min(commonSkills.length * 25, 50);
-  const interestScore = Math.min(commonInterests.length * 20, 30);
-  const aboutScore = Math.min(aboutOverlapCount * 5, 10);
+//   const skillScore = Math.min(commonSkills.length * 25, 50);
+//   const interestScore = Math.min(commonInterests.length * 20, 30);
+//   const aboutScore = Math.min(aboutOverlapCount * 5, 10);
 
-  let communityScore = 0;
-  if ((candidateUser.followersCount || 0) > 0) {
-    communityScore += 5;
-  }
-  if ((candidateUser.followingCount || 0) > 0) {
-    communityScore += 5;
-  }
+//   let communityScore = 0;
+//   if ((candidateUser.followersCount || 0) > 0) {
+//     communityScore += 5;
+//   }
+//   if ((candidateUser.followingCount || 0) > 0) {
+//     communityScore += 5;
+//   }
 
-  const recommendationScore = skillScore + interestScore + aboutScore + communityScore;
-  const recommendationReasons = [];
+//   const recommendationScore = skillScore + interestScore + aboutScore + communityScore;
+//   const recommendationReasons = [];
 
-  if (commonSkills.length > 0) {
-    recommendationReasons.push(
-      `Common skills: ${commonSkills.slice(0, 3).join(", ")}`
-    );
-  }
+//   if (commonSkills.length > 0) {
+//     recommendationReasons.push(
+//       `Common skills: ${commonSkills.slice(0, 3).join(", ")}`
+//     );
+//   }
 
-  if (commonInterests.length > 0) {
-    recommendationReasons.push(
-      `Shared interests: ${commonInterests.slice(0, 3).join(", ")}`
-    );
-  }
+//   if (commonInterests.length > 0) {
+//     recommendationReasons.push(
+//       `Shared interests: ${commonInterests.slice(0, 3).join(", ")}`
+//     );
+//   }
 
-  if (aboutOverlapCount > 0) {
-    recommendationReasons.push("Profile bio shows similar working interests");
-  }
+//   if (aboutOverlapCount > 0) {
+//     recommendationReasons.push("Profile bio shows similar working interests");
+//   }
 
-  if (communityScore > 0) {
-    recommendationReasons.push("Active in the DevConnect community");
-  }
+//   if (communityScore > 0) {
+//     recommendationReasons.push("Active in the DevConnect community");
+//   }
 
-  if (recommendationReasons.length === 0) {
-    recommendationReasons.push("Recommended from overall profile similarity");
-  }
+//   if (recommendationReasons.length === 0) {
+//     recommendationReasons.push("Recommended from overall profile similarity");
+//   }
 
-  return {
-    recommendationScore,
-    recommendationReasons,
-    commonSkills,
-    commonInterests,
-  };
-};
+//   return {
+//     recommendationScore,
+//     recommendationReasons,
+//     commonSkills,
+//     commonInterests,
+//   };
+// };
 
 userRouter.get("/profile", userAuth, async (req, res) => {
   try {
@@ -307,7 +308,7 @@ userRouter.get("/interested/connections", userAuth, async (req, res) => {
 //   }
 // });
 
-
+const reasonCache = new Map();
 
 userRouter.get("/feed", userAuth, async (req, res) => {
   try {
@@ -365,28 +366,77 @@ userRouter.get("/feed", userAuth, async (req, res) => {
       .skip(skip)
       .limit(limit);
 
+    let currentUser = loggedInUser;
+
+    if (!loggedInUser.embedding || loggedInUser.embedding.length === 0) {
+      const text = buildUserText(loggedInUser);
+      const embedding = await getEmbedding(text);
+
+      currentUser = { ...loggedInUser, embedding };
+    }
+
+    // 🔥 STEP 1: AI ranking (already added)
     const recommendedUsers = usersAll
       .map((user) => {
-        const recommendation = buildRecommendation(loggedInUser, user);
+
+        if (!Array.isArray(user.embedding) || !Array.isArray(currentUser.embedding)) {
+          return {
+            ...user.toObject(),
+            aiScore: 0,
+          };
+        }
+
+        const score = cosineSimilarity(
+          currentUser.embedding,
+          user.embedding
+        );
+
         return {
           ...user.toObject(),
-          ...recommendation,
+          aiScore: score * 100,
         };
       })
-      .sort((firstUser, secondUser) => secondUser.recommendationScore - firstUser.recommendationScore);
+      .sort((a, b) => b.aiScore - a.aiScore);
 
+
+    // 🔥 STEP 2: Gemini explanation (ADD HERE)
+    // 🔥 STEP 2: Gemini explanation + cache
+
+    const topUsers = recommendedUsers.slice(0, 3);
+
+    await Promise.all(
+      topUsers.map(async (user) => {
+
+        const key = `${loggedInUser._id}_${user._id}`;
+
+        // ✅ cache hit
+        if (reasonCache.has(key)) {
+          user.reason = reasonCache.get(key);
+          return;
+        }
+
+        try {
+          const reason = await generateReason(loggedInUser, user);
+
+          user.reason = reason;
+
+          // ✅ store in cache
+          reasonCache.set(key, reason);
+
+          if (reasonCache.size > 1000) {
+            reasonCache.clear();
+          }
+
+        } catch {
+          user.reason = "Good match based on profile similarity";
+        }
+      })
+    );
+
+    // 🔥 STEP 3: SEND RESPONSE (unchanged)
     res.json({
-      message:"sucess",
-      data:recommendedUsers,
-      recommendationModel: {
-        type: "Explainable AI scoring",
-        factors: [
-          "Common skills",
-          "Shared interests",
-          "About/profile keyword similarity",
-          "Community activity"
-        ]
-      }
+      message: "success",
+      data: recommendedUsers,
     });
 
   } catch (err) {
@@ -416,6 +466,14 @@ userRouter.patch("/profile/edit", userAuth, async (req, res) => {
       },
       { new: true },
     );
+
+    const text = buildUserText(updatedUser);
+
+    const embedding = await getEmbedding(text);
+
+    updatedUser.embedding = embedding;
+    await updatedUser.save();
+
     res.send({
       message: `${updatedUser.name} ,Your profile is successfully edited`,
       data: updatedUser,
@@ -470,8 +528,8 @@ userRouter.get("/accepted/followers", userAuth, async (req, res) => {
 });
 
 //======================GET FOLLOWING CONNECTION ROUTE==================================
-userRouter.get("/accepted/followings",userAuth,async(req,res)=>{
-    try {
+userRouter.get("/accepted/followings", userAuth, async (req, res) => {
+  try {
     const loggedInUserId = req.user._id;
 
     const followings = await connectionRequestModel

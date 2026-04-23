@@ -30,6 +30,7 @@
 
 
 const socket = require("socket.io");
+const Message = require("../model/message");
 
 const initializeSocket = (server) => {
     const io = socket(server, {
@@ -47,20 +48,64 @@ const initializeSocket = (server) => {
         });
 
         // ✅ SEND MESSAGE
-        clientSocket.on("sendMessage", (msg) => {
+        // clientSocket.on("sendMessage", (msg) => {
+        //     const roomId = [msg.userId, msg.targetUserId].sort().join("_");
+
+        //     const messageData = {
+        //         ...msg,
+        //         status: "delivered", // immediately delivered
+        //     };
+
+        //     io.to(roomId).emit("messageReceived", messageData);
+        // });
+
+        clientSocket.on("sendMessage", async (msg) => {
             const roomId = [msg.userId, msg.targetUserId].sort().join("_");
 
+            // ✅ SAVE IN DB
+            const savedMessage = await Message.create({
+                senderId: msg.userId,
+                receiverId: msg.targetUserId,
+                text: msg.text || "",
+                type: msg.type || "text",
+                fileUrl: msg.fileUrl || "",
+                fileName: msg.fileName || "",
+                status: "delivered",
+                photoUrl: msg.photoUrl,
+            });
+
             const messageData = {
-                ...msg,
-                status: "delivered", // immediately delivered
+                id: savedMessage._id,
+                senderName: msg.senderName,
+                userId: msg.userId,
+                targetUserId: msg.targetUserId,
+                text: savedMessage.text,
+                type: savedMessage.type,
+                fileUrl: savedMessage.fileUrl,
+                fileName: savedMessage.fileName,
+                createdAt: savedMessage.createdAt,
+                status: "delivered",
+                photoUrl: msg.photoUrl,
             };
 
             io.to(roomId).emit("messageReceived", messageData);
         });
 
         // ✅ SEEN MESSAGE
-        clientSocket.on("markSeen", ({ userId, targetUserId, messageId }) => {
+        // clientSocket.on("markSeen", ({ userId, targetUserId, messageId }) => {
+        //     const roomId = [userId, targetUserId].sort().join("_");
+
+        //     io.to(roomId).emit("messagesSeen", {
+        //         messageId,
+        //     });
+        // });
+
+        clientSocket.on("markSeen", async ({ userId, targetUserId, messageId }) => {
             const roomId = [userId, targetUserId].sort().join("_");
+
+            await Message.findByIdAndUpdate(messageId, {
+                status: "seen",
+            });
 
             io.to(roomId).emit("messagesSeen", {
                 messageId,

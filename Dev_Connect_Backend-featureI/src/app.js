@@ -26,6 +26,7 @@ const {requestRouter} = require("./routes/requestRoutes");
 const {userRouter} = require("./routes/userRoutes");
 const {reviewRouter} =require("./routes/reviewRoutes");
 const {postRouter} = require("./routes/postRoutes");
+const { messageRouter } = require("./routes/messageRoutes");
 const initializeSocket = require("./utils/socket");
 
 
@@ -35,11 +36,13 @@ app.get("/",async(req,res)=>{
 
 
 //authRouter
+app.use("/uploads", express.static("uploads"));
 app.use("/",authRouter);
 app.use("/",requestRouter);
 app.use("/",userRouter);
 app.use("/",reviewRouter);
 app.use("/",postRouter);
+app.use("/messages", messageRouter);
 //secure api acess
 app.get("/profile",userAuth,async(req,res)=>{
     const {name,age,email} =req.user;
