@@ -145,7 +145,7 @@ const Usercard = ({
               <p className="text-xs uppercase tracking-wide text-zinc-500">
                 Interests
               </p>
-              <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+              <div className="flex flex-wrap gap-2 md:justify-start">
                 {(Array.isArray(interests)
                   ? interests
                   : typeof interests === "string"

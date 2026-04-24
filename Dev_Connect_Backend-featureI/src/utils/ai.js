@@ -2,7 +2,6 @@ const { pipeline } = require("@xenova/transformers");
 
 let extractor;
 
-// load model once
 const loadModel = async () => {
   extractor = await pipeline(
     "feature-extraction",
@@ -10,19 +9,25 @@ const loadModel = async () => {
   );
 };
 
-// convert profile → embedding
 const getEmbedding = async (text) => {
-  if (!extractor) throw new Error("Model not loaded");
+  try {
+    if (!extractor) {
+      console.warn("Model not loaded yet");
+      return [];
+    }
 
-  const output = await extractor(text, {
-    pooling: "mean",
-    normalize: true,
-  });
+    const output = await extractor(text, {
+      pooling: "mean",
+      normalize: true,
+    });
 
-  return Array.from(output.data);
+    return Array.from(output.data);
+  } catch (err) {
+    console.error("Embedding error:", err.message);
+    return [];
+  }
 };
 
-// cosine similarity
 const cosineSimilarity = (a, b) => {
   const dot = a.reduce((sum, val, i) => sum + val * b[i], 0);
   const magA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
@@ -30,7 +35,6 @@ const cosineSimilarity = (a, b) => {
   return dot / (magA * magB);
 };
 
-// build text
 const buildUserText = (user) => {
   return `
   Skills: ${(user.skills || []).join(", ")}

@@ -376,27 +376,32 @@ userRouter.get("/feed", userAuth, async (req, res) => {
     }
 
     // 🔥 STEP 1: AI ranking (already added)
-    const recommendedUsers = usersAll
-      .map((user) => {
+    const recommendedUsers = await Promise.all(
+      usersAll.map(async (user) => {
+        let userEmbedding = user.embedding;
 
-        if (!Array.isArray(user.embedding) || !Array.isArray(currentUser.embedding)) {
+        if (!userEmbedding || userEmbedding.length === 0) {
+          const text = buildUserText(user);
+          userEmbedding = await getEmbedding(text);
+        }
+
+        if (!Array.isArray(userEmbedding) || !Array.isArray(currentUser.embedding)) {
           return {
             ...user.toObject(),
             aiScore: 0,
           };
         }
 
-        const score = cosineSimilarity(
-          currentUser.embedding,
-          user.embedding
-        );
+        const score = cosineSimilarity(currentUser.embedding, userEmbedding);
 
         return {
           ...user.toObject(),
           aiScore: score * 100,
         };
       })
-      .sort((a, b) => b.aiScore - a.aiScore);
+    );
+
+    recommendedUsers.sort((a, b) => b.aiScore - a.aiScore);
 
 
     // 🔥 STEP 2: Gemini explanation (ADD HERE)
@@ -418,7 +423,7 @@ userRouter.get("/feed", userAuth, async (req, res) => {
         try {
           const reason = await generateReason(loggedInUser, user);
 
-          user.reason = reason;
+          user.reason = reason || `Matches your interest in ${user.skills?.[0] || "technology"}`;
 
           // ✅ store in cache
           reasonCache.set(key, reason);
@@ -428,7 +433,7 @@ userRouter.get("/feed", userAuth, async (req, res) => {
           }
 
         } catch {
-          user.reason = "Good match based on profile similarity";
+          user.reason = `Matches your interest in ${user.skills?.[0] || "technology"}`;
         }
       })
     );
@@ -440,7 +445,10 @@ userRouter.get("/feed", userAuth, async (req, res) => {
     });
 
   } catch (err) {
-    res.status(400).send(err.message);
+    console.error("FEED ERROR:", err); // ✅ ADD
+    res.status(500).json({
+      message: "Failed to fetch feed",
+    });
   }
 });
 
@@ -481,7 +489,7 @@ userRouter.patch("/profile/edit", userAuth, async (req, res) => {
   } catch (err) {
     res
       .status(400)
-      .send({ message: "Age must be greater than 18 or Invalid Edit Request" });
+      .send({ message: "Invalid Edit Request" });
   }
 });
 
