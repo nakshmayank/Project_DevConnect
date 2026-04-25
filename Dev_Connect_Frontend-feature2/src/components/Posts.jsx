@@ -333,7 +333,7 @@ const Posts = () => {
                           "https://dummyimage.com/200x200/000/fff&text=User"
                         }
                         alt={post.author?.name || "Developer"}
-                        className="w-14 h-14 rounded-2xl object-cover border border-zinc-700"
+                        className="w-20 h-24 rounded-2xl object-cover border border-zinc-700"
                       />
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">

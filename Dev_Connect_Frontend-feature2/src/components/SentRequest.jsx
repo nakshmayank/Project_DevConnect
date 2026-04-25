@@ -48,7 +48,7 @@ const SentRequest = () => {
         { withCredentials: true },
       );
       dispatch(removeRequests(id)); 
-      dispatch(addFeed(null));
+      dispatch(addFeed([]));
     } catch (err) {
       res.send(err.message);
     }
@@ -86,7 +86,7 @@ const SentRequest = () => {
                 >
                   <div className="flex flex-col md:flex-row items-center gap-6">
                     {/* Avatar */}
-                    <div className="flex-shrink-0">
+                    <div className="shrink-0">
                       <div className="w-24 h-24 rounded-full overflow-hidden border border-zinc-700">
                         <img
                           src={

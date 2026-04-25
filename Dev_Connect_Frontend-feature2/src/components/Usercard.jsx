@@ -43,17 +43,17 @@ const Usercard = ({
     <div className="w-full max-w-md">
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl overflow-hidden transition hover:scale-[1.02] duration-300">
         {/* Image Section */}
-        <div className="w-full h-80 overflow-hidden">
+        <div className="w-full h-80 overflow-hidden p-3.5">
           <img
             src={
               photoUrl || "https://dummyimage.com/600x800/000/fff&text=No+Image"
             }
             alt="User"
-            className="w-full h-full object-cover"
+            className="w-full h-full rounded-xl object-cover"
           />
         </div>
         {/*Buttons*/}
-        <div className="grid grid-cols-2 gap-4 pt-4 w-full">
+        <div className="grid grid-cols-2 gap-4 pt-4 w-full px-4">
           <button
             className="
       flex flex-col items-center justify-center

@@ -149,7 +149,10 @@ const Chat = () => {
 
         const formatted = data.map((msg) => ({
           id: msg._id,
-          senderName: msg.senderId.toString() === userId ? senderName : "User",
+          senderName:
+            msg.senderId.toString() === userId
+              ? senderName
+              : msg.senderName || "User",
           userId: msg.senderId.toString(),
           targetUserId: msg.receiverId.toString(),
           text: msg.text,
@@ -173,7 +176,7 @@ const Chat = () => {
   }, [userId, targetUserId]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !targetUserId) return;
 
     socketRef.current = createSocketConnection();
 
@@ -191,6 +194,12 @@ const Chat = () => {
       setMessages((prev) => {
         const exists = prev.some((m) => m.id === msg.id);
         if (exists) return prev;
+        const isCurrentChat =
+          (msg.userId === userId && msg.targetUserId === targetUserId) ||
+          (msg.userId === targetUserId && msg.targetUserId === userId);
+
+        if (!isCurrentChat) return prev;
+
         return [...prev, msg];
       });
 
@@ -220,11 +229,14 @@ const Chat = () => {
   const sendMessage = () => {
     if (!newMessage.trim()) return;
 
+    if (!userId || !targetUserId) return;
+    if (userId === targetUserId) return;
+
     const messageData = {
       id: Date.now(),
       senderName,
-      userId,
-      targetUserId,
+      userId: String(userId),
+      targetUserId: String(targetUserId),
       text: newMessage,
       createdAt: new Date(),
       status: "sent",
@@ -255,10 +267,13 @@ const Chat = () => {
 
       const { fileUrl, fileName } = res.data;
 
+      if (!userId || !targetUserId) return;
+      if (userId === targetUserId) return;
+
       socketRef.current.emit("sendMessage", {
         senderName,
-        userId,
-        targetUserId,
+        userId: String(userId),
+        targetUserId: String(targetUserId),
         type: file.type.startsWith("image") ? "image" : "file",
         fileUrl,
         fileName,
@@ -299,32 +314,31 @@ const Chat = () => {
                   />
                 )}
 
+                <div className="bg-gray-700 px-2 py-1 rounded-xl max-w-xs">
+                  {/* TEXT */}
+                  {msg.type === "text" && msg.text}
 
-                  <div className="bg-gray-700 px-2 py-1 rounded-xl max-w-xs">
-                    {/* TEXT */}
-                    {msg.type === "text" && msg.text}
+                  {/* IMAGE */}
+                  {msg.type === "image" && (
+                    <img
+                      src={msg.fileUrl}
+                      className="max-w-xs rounded"
+                      alt="sent"
+                    />
+                  )}
 
-                    {/* IMAGE */}
-                    {msg.type === "image" && (
-                      <img
-                        src={msg.fileUrl}
-                        className="max-w-xs rounded"
-                        alt="sent"
-                      />
-                    )}
-
-                    {/* FILE */}
-                    {msg.type === "file" && (
-                      <a
-                        href={msg.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-blue-400 underline"
-                      >
-                        📄 {msg.fileName}
-                      </a>
-                    )}
-                  </div>
+                  {/* FILE */}
+                  {msg.type === "file" && (
+                    <a
+                      href={msg.fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-400 underline"
+                    >
+                      📄 {msg.fileName}
+                    </a>
+                  )}
+                </div>
 
                 {isMe && (
                   <img
@@ -350,7 +364,6 @@ const Chat = () => {
       </div>
 
       <div className="p-4 border-t border-gray-700 flex gap-2 items-center">
-
         {/* Text input */}
         <input
           value={newMessage}
@@ -368,7 +381,10 @@ const Chat = () => {
         />
 
         {/* 📎 Button */}
-        <label htmlFor="fileInput" className="btn p-2 btn-secondary cursor-pointer">
+        <label
+          htmlFor="fileInput"
+          className="btn p-2 btn-secondary cursor-pointer"
+        >
           <Paperclip size={18} />
         </label>
 

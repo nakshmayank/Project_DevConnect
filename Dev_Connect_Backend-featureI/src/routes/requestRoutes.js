@@ -64,39 +64,50 @@ requestRouter.patch(
   async (req, res) => {
     try {
       const { connectionId, status } = req.params;
+
       const allowedStatus = ["ignored", "interested"];
       if (!allowedStatus.includes(status)) {
-        return res
-          .status(400)
-          .json({ message: "Invalid status type :" + status });
+        return res.status(400).json({
+          message: "Invalid status type: " + status,
+        });
       }
 
-      const connectionRequest = await connectionRequestModel.findOne({
-        _id: connectionId,
-        status: { $in: ["accepted", "rejected"] },
-      });
-      if (connectionRequest) {
-        alert("this connection doesn't exists, Please Reload");
-        return res.status(400).send("this connection doesn't exists");
-      }
-      const updatedRequest = await connectionRequestModel.findByIdAndUpdate(
-        connectionId,
-        { $set: { status: status } },
-      );
-      if (!updatedRequest) {
+      // ✅ Step 1: Check if request exists
+      const existingRequest = await connectionRequestModel.findById(connectionId);
+
+      if (!existingRequest) {
         return res.status(404).json({
           message: "Connection request not found",
         });
       }
-      //checking from existing connection request
-      res.send({
+
+      // ✅ Step 2: Prevent modifying final states
+      if (["accepted", "rejected"].includes(existingRequest.status)) {
+        return res.status(400).json({
+          message: "Cannot update this request anymore",
+        });
+      }
+
+      // ✅ Step 3: Update status
+      const updatedRequest = await connectionRequestModel.findByIdAndUpdate(
+        connectionId,
+        { $set: { status } },
+        { new: true } // return updated document
+      );
+
+      // ✅ Step 4: Send response
+      res.status(200).json({
         message: "The sent request status is changed successfully",
-        updatedRequest,
+        data: updatedRequest,
       });
+
     } catch (err) {
-      res.send(err.message);
+      res.status(500).json({
+        message: "Something went wrong",
+        error: err.message,
+      });
     }
-  },
+  }
 );
 
 //=====================ACCEPT OR REJECT CONNECTIONS FOR FOLLOW REQUEST==================================
@@ -146,7 +157,7 @@ requestRouter.post(
         },
       ]);
 
-      res.send({ message: "Connection request is "+status, data });
+      res.send({ message: "Connection request is " + status, data });
     } catch (err) {
       res.status(500).send({ message: err.message });
     }
@@ -162,10 +173,12 @@ requestRouter.delete(
       const { docId } = req.params;
 
       const deletedConnectionReq =
-        await connectionRequestModel.findOneAndDelete({_id:docId,status:{$nin:["rejected","accepted"]}});
-        if(!deletedConnectionReq){
-            return res.status(200).send({message:"Connection Request is not Found"})
-        }
+        await connectionRequestModel.findOneAndDelete({ _id: docId, status: { $nin: ["rejected", "accepted"] } });
+      if (!deletedConnectionReq) {
+        return res.status(404).send({
+          message: "Connection Request not found",
+        });
+      }
       res.send({
         message: "This connection Request is deleted successfully",
         data: deletedConnectionReq,

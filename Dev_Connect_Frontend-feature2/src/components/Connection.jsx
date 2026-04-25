@@ -25,7 +25,7 @@ const Connection = () => {
   const handleDeleteFollowers = async (connection) => {
     try {
       const res = await axios.delete(
-        BASE_URL +"/delete/followers/"+connection.fromUserId._id,
+        BASE_URL + "/delete/followers/" + connection.fromUserId._id,
         { withCredentials: true },
       );
       alert(res.data.message);
@@ -71,7 +71,8 @@ const Connection = () => {
             // const fromId = String(connection.toUserId._id); // otherUser
             // const loggedInId = String(user._id);
 
-            const { _id,name, age, photoUrl, gender, about, skills } = connection.fromUserId;
+            const { _id, name, age, photoUrl, gender, about, skills } =
+              connection.fromUserId;
 
             return (
               <div
@@ -80,7 +81,7 @@ const Connection = () => {
               >
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   {/* Avatar */}
-                  <div className="flex-shrink-0">
+                  <div className="shrink-0">
                     <div className="w-24 h-24 rounded-full overflow-hidden border border-zinc-700">
                       <img
                         src={
@@ -131,19 +132,16 @@ const Connection = () => {
                   {/* Remove Button */}
                   <div className="w-full md:w-auto">
                     <button
-                      onClick={() =>handleDeleteFollowers(connection)}
+                      onClick={() => handleDeleteFollowers(connection)}
                       className="w-full md:w-auto px-6 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition"
                     >
                       Remove
                     </button>
-                    <Link to={"/chat/"+_id}>
-                      <button
-                      className="w-full md:w-auto px-6 py-2 rounded-lg bg-green-600 hover:bg-green-900 text-white font-medium transition"
-                    >
-                      Chat
-                    </button>
+                    <Link to={"/chat/" + _id}>
+                      <button className="w-full md:w-auto px-6 py-2 rounded-lg bg-green-600 hover:bg-green-900 text-white font-medium transition">
+                        Chat
+                      </button>
                     </Link>
- 
                   </div>
                 </div>
               </div>

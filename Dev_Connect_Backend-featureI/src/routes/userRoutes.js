@@ -343,8 +343,11 @@ userRouter.get("/feed", userAuth, async (req, res) => {
     const hiddenUserFromFeed = new Set([loggedInUser._id]);
 
     connectionRequests.forEach((cr) => {
-      hiddenUserFromFeed.add(cr.fromUserId);
-      hiddenUserFromFeed.add(cr.toUserId);
+      // ❗ Only hide active relationships
+      if (["interested", "accepted"].includes(cr.status)) {
+        hiddenUserFromFeed.add(cr.fromUserId);
+        hiddenUserFromFeed.add(cr.toUserId);
+      }
     });
 
     // 🔥 MAIN FILTER
@@ -363,8 +366,8 @@ userRouter.get("/feed", userAuth, async (req, res) => {
     const usersAll = await customer
       .find(filter)
       .select(USER_SAFE_DATA)
-      .skip(skip)
-      .limit(limit);
+    // .skip(skip)
+    // .limit(limit);
 
     let currentUser = loggedInUser;
 
