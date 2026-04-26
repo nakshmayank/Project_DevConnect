@@ -12,7 +12,7 @@ const initializeSocket = (server) => {
 
         clientSocket.on("joinChat", ({ senderName, userId, targetUserId }) => {
             const roomId = [userId, targetUserId].sort().join("_");
-            console.log(senderName + " Joined Room: " + roomId);
+            // console.log(senderName + " Joined Room: " + roomId);
             clientSocket.join(roomId);
         });
 
@@ -60,7 +60,7 @@ const initializeSocket = (server) => {
         });
 
         clientSocket.on("disconnect", () => {
-            console.log("User disconnected");
+            // console.log("User disconnected");
         });
     });
 

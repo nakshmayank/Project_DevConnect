@@ -18,7 +18,7 @@ const userAuth = async(req,res,next)=>{
             throw new Error("User is not signed in OR User doesn't exist");
         }
         req.user = user;
-        console.log("Authorised");
+        // console.log("Authorised");
         next();
     }
     catch(err){

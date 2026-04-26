@@ -316,9 +316,9 @@ userRouter.get("/feed", userAuth, async (req, res) => {
     const loggedInUser = req.user;
     const { search } = req.query;
 
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    // const page = parseInt(req.query.page) || 1;
+    // const limit = parseInt(req.query.limit) || 10;
+    // const skip = (page - 1) * limit;
 
     const USER_SAFE_DATA = [
       "name",
@@ -350,12 +350,10 @@ userRouter.get("/feed", userAuth, async (req, res) => {
       }
     });
 
-    // 🔥 MAIN FILTER
     let filter = {
       _id: { $nin: [...hiddenUserFromFeed] }
     };
 
-    // 🔥 ADD SEARCH CONDITION
     if (search && search.trim() !== "") {
       filter.name = {
         $regex: search.trim(),
@@ -378,7 +376,6 @@ userRouter.get("/feed", userAuth, async (req, res) => {
       currentUser = { ...loggedInUser, embedding };
     }
 
-    // 🔥 STEP 1: AI ranking (already added)
     const recommendedUsers = await Promise.all(
       usersAll.map(async (user) => {
         let userEmbedding = user.embedding;

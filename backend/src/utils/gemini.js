@@ -4,7 +4,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const generateReason = async (userA, userB) => {
     try {
-        const model = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash-latest" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview", });
 
         const prompt = `
 Compare their skills, interests, and goals and explain in 1 short sentence why they should connect:
